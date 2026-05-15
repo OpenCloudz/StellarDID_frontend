@@ -1,164 +1,208 @@
-# StellarDID
+# StellarDID — Frontend
 
-**Self-sovereign identity infrastructure for the Stellar ecosystem.**
+> The web interface for StellarDID — register DIDs, issue credentials, and verify identity on Stellar.
 
-A Soroban-powered decentralized identity (DID) registry that lets users own their credentials, issuers publish verifiable claims, and smart contracts gate access on verified identity — without ever centralizing personal data.
-
----
-
-## Problem
-
-Stellar is one of the most active blockchain networks for real-world financial infrastructure — cross-border payments, stablecoins, tokenized assets, and regulated financial services. But identity remains the missing layer.
-
-Today, every application on Stellar handles identity independently:
-
-- **Anchors re-verify the same users** across different services, creating redundant KYC friction and storing sensitive PII in multiple places
-- **Regulated asset contracts have no composable way to enforce compliance** — there is no on-chain primitive that says "this address is a verified accredited investor" that other contracts can trustlessly read
-- **Users have no portable credential layer** — completing verification on one platform gives you nothing on the next
-- **Sybil attacks are trivial** in Stellar-based governance and DAO structures, since one person can control many accounts with no identity binding
-- **No `did:stellar:` method exists** — Stellar is unregistered in the W3C DID registry, leaving developers without a standardized identity primitive to build on
-
-The result is a fragmented ecosystem where every project that touches identity rebuilds the same trust infrastructure from scratch, or outsources it to centralized providers — defeating the point of decentralization.
+This package contains the Next.js frontend. It is the interaction surface for three distinct user roles: holders managing their own identity, issuers publishing credentials, and verifiers checking a DID's status.
 
 ---
 
-## Solution
+## Overview
 
-StellarDID provides a standards-compliant, composable identity layer built natively on Stellar:
+The frontend is a role-based web app with three main views:
 
-**A Soroban DID Registry Contract** — the on-chain source of truth. Any Stellar address can register a DID, anchor a DID Document hash, and manage its associated credentials. The registry is permissionless and non-custodial: the contract never holds private keys or PII.
+- **Holder Dashboard** — connect Freighter, register a DID, view credentials you hold, and generate a Verifiable Presentation to share with verifiers
+- **Issuer Panel** — select a subject address, choose a credential type, and publish a signed credential on-chain
+- **Verifier / Public View** — look up any `did:stellar:G...`, see its DID Document, and check current credential status
 
-**Verifiable Credential Issuance** — trusted issuers (anchors, KYC providers, DAOs) can publish signed credential claims against a subject's DID. Credentials are stored off-chain (IPFS/Arweave) with only the hash and metadata anchored on Stellar, keeping sensitive data off the ledger while preserving tamper-evidence.
+---
 
-**On-Chain Revocation** — issuers can revoke credentials at any time. Any contract or application querying `verify()` gets the current revocation status, not a stale snapshot.
-
-**Composable `verify()` Primitive** — other Soroban contracts can call `verify(address, credential_type)` as a single-line gate. A token transfer contract, a DAO voting contract, or a lending protocol can all enforce identity requirements without building their own identity stack.
-
-**A `did:stellar:` Method Spec** — StellarDID ships with a draft W3C DID method specification for `did:stellar:`, giving the ecosystem a standardized identifier format that maps cleanly to Stellar's account model.
-
-**Credential Management UI** — a minimal web frontend where holders view and share their credentials, issuers publish claims, and verifiers can inspect a DID's current status — no command line required.
-
-### How It Works
+## Pages
 
 ```
-1. Holder registers DID
-   └─ Stellar account G... → did:stellar:G...
-   └─ DID Document (keys, service endpoints) → IPFS
-   └─ Document hash anchored via registry contract
-
-2. Issuer publishes credential
-   └─ Issuer signs VC (e.g. "KYC_VERIFIED", "ACCREDITED_INVESTOR")
-   └─ VC stored on IPFS
-   └─ Credential hash + metadata registered on-chain
-   └─ Subject notified via Stellar memo or SEP-0006 callback
-
-3. Contract verifies identity
-   └─ contract.call("transfer", amount, recipient)
-   └─ internally: registry.verify(recipient, "KYC_VERIFIED") → true/false
-   └─ transfer proceeds or reverts based on result
-
-4. Revocation
-   └─ Issuer calls registry.revoke(credential_id)
-   └─ verify() immediately returns false for revoked credentials
+/                   Public DID lookup — resolve any did:stellar: identifier
+/dashboard          Holder — view and manage your DID and credentials
+/issue              Issuer — publish a verifiable credential
+/verify             Verifier — check a subject's credential status
 ```
 
 ---
 
-## Stack
+## Project Structure
 
-### Smart Contracts
-| Component | Technology |
-|---|---|
-| DID Registry | Soroban (Rust) on Stellar |
-| Credential issuance & revocation | Soroban contract storage + events |
-| Verification primitive | Soroban cross-contract calls |
-| Testing | `soroban-sdk` test harness, Stellar testnet |
-
-### Off-Chain Storage
-| Component | Technology |
-|---|---|
-| DID Documents | IPFS via `ipfs-http-client` |
-| Verifiable Credentials | IPFS (content-addressed, tamper-evident) |
-| Pinning | Pinata (free tier for MVP) |
-
-### Frontend
-| Component | Technology |
-|---|---|
-| Framework | Next.js 14 (App Router) + TypeScript |
-| Styling | Tailwind CSS |
-| Stellar SDK | `@stellar/stellar-sdk` v12 |
-| Wallet | Freighter via `@stellar/freighter-api` |
-| Deployment | Vercel |
-
-### Standards Compliance
-| Standard | Role |
-|---|---|
-| W3C DID Core 1.0 | DID Document structure, resolution |
-| W3C Verifiable Credentials 1.1 | Credential schema and proof format |
-| `did:stellar:` method spec | Identifier format (drafted as part of this project) |
-| Stellar SEP-0030 | Account recovery model compatibility |
-
----
-
-## Contract Interface (Draft)
-
-```rust
-// Register a DID and anchor its document hash
-fn register(env: Env, did: String, document_hash: BytesN<32>);
-
-// Issue a credential against a subject DID
-fn issue_credential(
-    env: Env,
-    subject: Address,
-    credential_type: Symbol,
-    credential_hash: BytesN<32>,
-    expiry: Option<u64>,
-);
-
-// Revoke a previously issued credential
-fn revoke_credential(env: Env, credential_id: BytesN<32>);
-
-// Composable verification — callable by other contracts
-fn verify(env: Env, subject: Address, credential_type: Symbol) -> bool;
-
-// Resolve a DID to its document hash
-fn resolve(env: Env, did: String) -> Option<BytesN<32>>;
+```
+frontend/
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx              # Root layout, fonts, global providers
+│   │   ├── page.tsx                # Public DID resolver
+│   │   ├── dashboard/
+│   │   │   └── page.tsx            # Holder dashboard
+│   │   ├── issue/
+│   │   │   └── page.tsx            # Issuer panel
+│   │   └── verify/
+│   │       └── page.tsx            # Verifier view
+│   ├── components/
+│   │   ├── Header.tsx              # Nav, wallet connect, network toggle
+│   │   ├── DIDCard.tsx             # DID Document display
+│   │   ├── CredentialCard.tsx      # Single credential with status badge
+│   │   ├── IssuerForm.tsx          # Credential issuance form
+│   │   └── VerifierPanel.tsx       # Credential status check UI
+│   ├── hooks/
+│   │   ├── useWallet.ts            # Freighter connection and signing
+│   │   ├── useDID.ts               # DID registration and resolution
+│   │   └── useCredential.ts        # Credential issuance and verification
+│   └── lib/
+│       ├── stellar.ts              # Soroban contract calls
+│       ├── did.ts                  # DID Document construction helpers
+│       └── types.ts                # Shared TypeScript types
+├── public/
+├── .env.local.example
+├── next.config.ts
+├── tailwind.config.ts
+└── package.json
 ```
 
 ---
 
-## Roadmap
+## Prerequisites
 
-**v0.1 — MVP (Drips submission)**
-- [ ] Soroban DID registry contract (register, issue, revoke, verify)
-- [ ] `did:stellar:` method draft spec
-- [ ] IPFS document storage + hash anchoring
-- [ ] Credential management UI (Freighter-connected)
-- [ ] One end-to-end demo: token-gated page behind a Stellar DID credential
-- [ ] Full test suite on testnet
-
-**v0.2**
-- [ ] Guardian-based DID recovery (leveraging Stellar's multi-signer model)
-- [ ] Credential schema registry (standardized VC types for the ecosystem)
-- [ ] SEP-0006 anchor integration (anchors as credential issuers)
-- [ ] SDK: `stellar-did-js` — TypeScript client for issuers and verifiers
-
-**v0.3**
-- [ ] W3C DID method submission
-- [ ] Mainnet deployment
-- [ ] Integration guides for Stellar anchors
+- Node.js 18+
+- [Freighter](https://www.freighter.app) browser extension installed
+- A funded Stellar testnet account
+- A running StellarDID backend (see [backend/README.md](../backend/README.md)) or the shared testnet deployment URL
 
 ---
 
-## Why Stellar
+## Local Setup
 
-Stellar's account model maps naturally to decentralized identity in ways EVM chains do not:
+```bash
+# Clone the repo
+git clone https://github.com/YOUR_USERNAME/stellardid_frontend.git
+cd stellardid_frontend
 
-- **Multi-signer accounts** → guardian recovery without smart contract complexity
-- **Data entries** → lightweight claim anchoring at the account level
-- **Low fees** → credential operations stay economically viable at scale
-- **Existing anchor network** → ready-made issuer infrastructure via SEP-compliant anchors
-- **SEP-0030** → recovery standard already aligned with DID key management patterns
+# Install dependencies
+npm install
+
+# Copy env file and fill in values
+cp .env.local.example .env.local
+```
+
+### Environment Variables
+
+```bash
+# Backend API
+NEXT_PUBLIC_API_URL=http://localhost:4000        # local backend
+# NEXT_PUBLIC_API_URL=https://api.stellardid.xyz # shared testnet deployment
+
+# Stellar
+NEXT_PUBLIC_NETWORK=testnet                      # testnet | mainnet
+NEXT_PUBLIC_REGISTRY_CONTRACT_ID=CXXX...        # deployed contract ID
+```
+
+```bash
+# Start dev server
+npm run dev
+
+# Type check
+npm run type-check
+
+# Build for production
+npm run build
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+---
+
+## Key Hooks
+
+### `useWallet`
+
+Manages Freighter wallet connection and signing state.
+
+```ts
+const { isConnected, publicKey, connect, disconnect, signTransaction } = useWallet();
+```
+
+### `useDID`
+
+Handles DID registration and resolution against the backend API.
+
+```ts
+const { did, document, loading, error, register, resolve } = useDID();
+```
+
+### `useCredential`
+
+Handles credential issuance, retrieval, and status checking.
+
+```ts
+const { credentials, loading, issue, verify } = useCredential(subject);
+```
+
+---
+
+## Contributing
+
+Contributions to the frontend are welcome. Here's how to get started.
+
+### Finding Work
+
+Browse [open issues](../../issues) and filter by the `frontend` label. Issues labelled `good first issue` are a great starting point — comment before picking one up to avoid duplicate work.
+
+### Making Changes
+
+Create a branch off `main`:
+
+```bash
+git checkout -b feat/short-description
+```
+
+### Code Style
+
+- TypeScript strict mode — no `any`
+- Functional components only — no class components
+- `"use client"` only when hooks or browser APIs are needed — prefer server components
+- All Stellar SDK usage stays inside `src/lib/stellar.ts` — components never import from `@stellar/stellar-sdk` directly
+- Tailwind for all styling — no inline styles except CSS variables
+- Keep hooks thin — data fetching and state only, no JSX
+
+### Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org):
+
+```bash
+git commit -m "feat(dashboard): add credential expiry countdown"
+git commit -m "fix(header): wallet disconnect not clearing public key"
+git commit -m "feat(issue): add credential type selector dropdown"
+git commit -m "refactor(hooks): extract credential fetching into useCredential"
+```
+
+### Pull Requests
+
+Include in your PR description:
+- What the change does
+- Which issue it resolves
+- A screenshot or screen recording if the change is visual
+
+### Good Places to Start
+
+| Issue | What it involves |
+|---|---|
+| Add loading skeleton to CredentialCard | Tailwind skeleton animation while credentials load |
+| Persist last-used network in localStorage | Read/write `localStorage` in `useWallet` |
+| Add copy-to-clipboard for DID string | Small utility component with clipboard API |
+| Build out `VerifierPanel` component | Takes a DID, calls `/api/verify`, shows result |
+| Add 404 state for unregistered DID | Handle null response from `useDID.resolve()` |
+| Implement Verifiable Presentation flow | Multi-credential selection + Freighter signing |
+
+---
+
+## Deployment
+
+The frontend deploys to Vercel. Push to `main` and Vercel picks it up automatically. Preview deployments are created for every pull request.
+
+Set the environment variables listed above in the Vercel project settings before deploying.
 
 ---
 
