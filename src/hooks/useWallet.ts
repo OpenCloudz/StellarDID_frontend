@@ -26,6 +26,7 @@ export function useWallet() {
     setPublicKey(null);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const signTransaction = async (_xdr: string): Promise<string> => {
     return "";
   };
