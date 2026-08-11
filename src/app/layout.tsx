@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Syne } from "next/font/google";
 import "./globals.css";
+import { Header } from "@/components/Header";
 
 const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body
         className={`${syne.variable} ${ibmPlexMono.variable} font-sans antialiased bg-background text-foreground`}
       >
+        <Header />
         {children}
       </body>
     </html>
