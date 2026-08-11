@@ -1,6 +1,10 @@
 "use client";
 
+// Author: RawNuke
+// Copyright (c) 2026 RawNuke. All rights reserved.
+
 import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDID } from "@/hooks/useDID";
 import { DIDCard } from "@/components/DIDCard";
@@ -14,7 +18,7 @@ import { DIDCard } from "@/components/DIDCard";
  * - Renders DIDCard for results, inline states for loading / not-found / error.
  */
 export function DIDResolver() {
-  const { document, loading, error, notFound, resolve } = useDID();
+  const { did, document, loading, error, notFound, resolve } = useDID();
   const [input, setInput] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -128,13 +132,24 @@ export function DIDResolver() {
 
           {/* Not found / 404 empty state */}
           {!loading && notFound && (
-            <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 px-6 py-10 text-center">
+            <div
+              role="status"
+              className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 px-6 py-10 text-center"
+            >
               <p className="font-syne text-sm font-semibold text-amber-800 dark:text-amber-300">
                 DID not registered
               </p>
-              <p className="mt-1 text-xs font-mono text-amber-700 dark:text-amber-400">
-                No on-chain record exists for this identifier.
+              <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
+                No DID Document found for{" "}
+                <span className="font-mono">{did}</span>. This identifier has
+                not been registered on the Stellar network.
               </p>
+              <Link
+                href="/dashboard"
+                className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-3 font-syne text-sm font-semibold text-white hover:bg-blue-700 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+              >
+                Register this DID
+              </Link>
             </div>
           )}
 
@@ -148,7 +163,7 @@ export function DIDResolver() {
                 Resolution failed
               </p>
               <p className="mt-1 text-xs font-mono text-red-600 dark:text-red-500 break-all">
-                {error}
+                Failed to resolve DID — please try again
               </p>
             </div>
           )}
