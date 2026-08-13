@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { useWallet } from "@/hooks/useWallet";
+import { useNetwork } from "@/hooks/useNetwork";
 import type { Network } from "@/lib/types";
-
-const NETWORK_KEY = "stellardid_network";
 
 /** Shorten a Stellar public key to G...XXXX (first 1 + last 4 chars). */
 function shortenKey(key: string): string {
@@ -14,20 +13,7 @@ function shortenKey(key: string): string {
 
 export function Header() {
   // ── Network toggle ────────────────────────────────────────────────────────
-  const [network, setNetwork] = useState<Network>("testnet");
-
-  useEffect(() => {
-    const stored = localStorage.getItem(NETWORK_KEY);
-    if (stored === "mainnet" || stored === "testnet") {
-      setNetwork(stored);
-    }
-  }, []);
-
-  const toggleNetwork = () => {
-    const next: Network = network === "testnet" ? "mainnet" : "testnet";
-    setNetwork(next);
-    localStorage.setItem(NETWORK_KEY, next);
-  };
+  const { network, setNetwork } = useNetwork();
 
   // ── Wallet ────────────────────────────────────────────────────────────────
   const { isConnected, publicKey, walletAvailable, connect, disconnect } =
@@ -35,6 +21,14 @@ export function Header() {
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const toggleNetwork = () => {
+    const next: Network = network === "testnet" ? "mainnet" : "testnet";
+    setNetwork(next);
+    if (isConnected) {
+      disconnect();
+    }
+  };
 
   // Close dropdown when clicking outside.
   useEffect(() => {
